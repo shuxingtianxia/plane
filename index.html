@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en" ondragstart = "return false">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<style>
+		body{
+			margin: 0;
+			padding: 0;
+			background: #000;
+			height: 100%;
+		}
+		#wrap{
+			width: 300px;
+			height: 500px;
+			border:10px solid #fff;
+			margin:20px auto;
+		}
+		#box{
+			overflow: hidden;
+			position: relative;
+			width: 100%;
+			height: 100%;
+		}
+		#box h1{
+			padding-top:40px;
+			color: #fff;
+			text-align:center;
+		}
+		#box .difficulty{
+			width: 150px;
+			height: 30px;
+			margin:50px auto;
+			background: #fff;
+			color: #f60;
+			font-size: 14px;
+			font-weight: bold;
+			text-align:center;
+			line-height: 30px;
+			cursor:pointer;
+		}
+		#box .weird{
+			width: 150px;
+			height: 30px;
+			margin:50px auto;
+			background: skyblue;
+			color: red;
+			font-size: 14px;
+			font-weight: bold;
+			text-align:center;
+			line-height: 30px;
+			cursor:pointer;
+		}
+		#box img{
+			position: absolute;
+		}
+		span{
+			color: #fff;
+		}
+		.end{
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			width: 220px;
+			height: 400px;
+			margin:auto;
+		}
+		.end p{
+			height: 40px;
+			margin-top: 30px;
+			color: #fff;
+			font-size: 20px;
+			font-weight: bold;
+			text-align: center;
+			line-height: 40px;
+		}
+		.end div{
+			width: 200px;
+			height: 30px;
+			margin:100px auto;
+			background: #c9abcb;
+			color: #036412;
+			font-size: 18px;
+			font-weight: bold;
+			text-align: center;
+			line-height: 30px;
+			cursor:pointer;
+		}
+	</style>
+</head>
+<body>
+	<div id="wrap">
+		<div id="box"></div>
+	</div>
+	<script>
+		(function(){
+			var box = document.getElementById("box"),
+				timer1;
+			
+			init();
+			//初始化界面
+			function init(){
+				var h1 = document.createElement("h1");
+				h1.innerHTML = "飞机大战V1.0"
+				box.appendChild(h1);
+				//创建难度选项
+				var arrInit = ["简单","中等","困难","超难"];
+				for(var i = 0;i < arrInit.length;i++){
+					var div = document.createElement("div");
+					div.innerHTML = arrInit[i];
+					div.className = (i === arrInit.length-1)?"weird":"difficulty";
+					box.appendChild(div);
+					div.i = i;
+					div.onclick = function(e){
+						start(this.i,e)
+					}
+				}
+			}
+			//开始游戏
+			function start(index,e){
+				//清空界面
+				box.innerHTML = "";
+				score();
+				var obj = myAirPlane(index,e);
+				enemy(index,obj);
+			}
+			//生成敌军
+			function enemy(index,obj){
+				//index是点击难度时，传来的变量，用来代表不同的难度
+				var arr = [300,200,80,30]//控制敌军的生成速度
+				timer1 = setInterval(function(){
+					//生成敌军
+					var enemyPlane = new Image();//和creatElement创建的没区别,这是一个图片标签
+						enemyPlane.src = "img/enemy.png";
+						enemyPlane.width = 23;
+						enemyPlane.height = 30;
+						enemyPlane.style.top = 0;
+						enemyPlane.style.left = Math.random()*box.clientWidth - enemyPlane.width/2 + "px";
+						box.appendChild(enemyPlane);
+						//敌军下落
+						var speed = Math.random()*3+2;//用来控制每个敌机的下落速度
+						enemySpeed();
+						//敌机下落函数
+						function enemySpeed(){
+							enemyPlane.style.top = enemyPlane.offsetTop + speed + "px";
+							if(enemyPlane.offsetTop >= box.clientHeight-enemyPlane.height){
+								box.removeChild(enemyPlane)
+							}else{//没到底部，继续往下掉
+								//来检测，先和子弹检测
+								var biu = document.getElementsByClassName("biu");
+								for(var i = 0; i < biu.length;i++){
+									if(isCollision(biu[i],enemyPlane)){//当isCollision返回true就是碰撞了
+										cancelAnimationFrame(biu[i].timer);
+										box.removeChild(biu[i]);
+										Boom(enemyPlane,"")
+										box.removeChild(enemyPlane);
+										document.getElementsByClassName("score")[0].innerHTML = box.score += 100;
+										return false;
+									}
+								}
+								//如果没碰到子弹，就继续跟我军检测碰撞
+								if( obj.parentNode && isCollision(obj,enemyPlane)){
+									document.onmousemove = null;
+									clearInterval(obj.timer);
+									clearInterval(timer1);
+									Boom(obj,2);
+									Boom(enemyPlane,"");
+									box.removeChild(obj);
+									box.removeChild(enemyPlane);
+									// gameover();
+									return false;
+								}
+								obj.parentNode && requestAnimationFrame(enemySpeed)
+							}
+						}
+				},arr[index])
+			}
+			//生成我军和子弹
+			function myAirPlane(index,e){
+				//生成我军
+				var myPlane = new Image();
+				myPlane.className = "myplane"
+				myPlane.src = "img/plane.png";
+				myPlane.width = 60;
+				myPlane.height = 36;
+				myPlane.style.top = e.pageY - getOffset(box).top - myPlane.height/2 + "px";
+				myPlane.style.left = e.pageX - getOffset(box).left - myPlane.width/2 + "px";
+				box.appendChild(myPlane);
+				//我军移动
+				//限制我军移动范围
+				var leftMax = box.clientWidth - myPlane.width/2,
+					leftMin = -myPlane.width/2,
+					topMax = box.clientHeight - myPlane.height;
+				document.onmousemove = function(e){
+					var top = e.pageY - getOffset(box).top - myPlane.height/2;
+					var left = e.pageX - getOffset(box).left - myPlane.width/2;
+					top = Math.min(topMax,top);
+					top = Math.max(0,top);
+					left = Math.min(leftMax,left);
+					left = Math.max(leftMin,left);
+					myPlane.style.top = top + "px";
+					myPlane.style.left = left + "px";
+				}
+				//生成子弹
+				var biuSpeed = [100,250,300,15]//子弹的发射速度
+				myPlane.timer = setInterval(function(){//定时器控制子弹生成
+					var biu = new Image();
+					biu.className = "biu";
+					biu.src = "img/bullet.png";
+					biu.width = 6;
+					biu.height = 22;
+					biu.style.top = myPlane.offsetTop - biu.height + "px";
+					biu.style.left = myPlane.offsetLeft + myPlane.width/2 - biu.width/2 + "px";
+					box.appendChild(biu);
+					//子弹向上运动
+					var bulletSpeed = 8;//控制子弹向上运动的速度
+					(function biuPlay(){
+						biu.style.top = biu.offsetTop - bulletSpeed + "px";
+						if(biu.offsetTop <= 0){
+							cancelAnimationFrame(biu.timer);
+							box.removeChild(biu);
+						}else{
+							myPlane.parentNode && (biu.timer = requestAnimationFrame(biuPlay))
+						}
+					})();
+				},biuSpeed[index])
+				return myPlane;
+			}
+			//Boom特效
+			function Boom(obj,n){
+				var img = new Image();
+				img.src = "img/boom"+n+".png";
+				img.width = obj.width;
+				img.height = obj.height;
+				img.style.top = obj.offsetTop + "px";
+				img.style.left = obj.offsetLeft + "px";
+				box.appendChild(img);
+				setTimeout(function(){
+					img.parentNode && box.removeChild(img);
+					n && gameover();
+				},n?800:100)
+			}
+			//分数
+			function score(){
+				box.score = 0;
+				var Span = document.createElement("span");
+				Span.className = "score";
+				Span.innerHTML = box.score;
+				box.appendChild(Span)
+			}
+			//结束页面
+			function gameover(){
+				box.innerHTML = "";
+				var Div = document.createElement("div"),
+					Div2 = document.createElement("div");
+				Div.className = "end";
+				Div.innerHTML = "<h1>Game Over</h1><p>得分:<span>"+box.score+"</span></p>";
+				Div2.innerHTML = "再来一局";
+				Div2.onclick = function(){
+					box.innerHTML = "";
+					init()
+				}
+				Div.appendChild(Div2);
+				box.appendChild(Div);
+			}
+			//检查碰撞
+			function isCollision(obj,enemy){//约定俗称的写法，方法就是is开头就是返回布尔值
+				var Top1 = obj.offsetTop,
+					Bottom1 = Top1 + obj.height,
+					Left1 = obj.offsetLeft,
+					Right1 = Left1 + obj.width;
+				var Top2 = enemy.offsetTop,
+					Bottom2 = Top2 + enemy.height,
+					Left2 = enemy.offsetLeft,
+					Right2= Left2 + enemy.width;
+				return !(Top1 > Bottom2 || Left1 > Right2 || Bottom1 < Top2 || Right1 < Left2)//true是碰撞了
+			}
+
+
+
+
+			//获取对象到body的距离
+			function getOffset(obj){
+				var json = {
+					left:0,
+					top:0
+				}
+				while(obj !== document.body){
+					json.left += obj.offsetLeft;
+					json.top += obj.offsetTop;
+					obj = obj.offsetParent;
+				}
+				return json;
+			}
+
+
+		})();
+		
+
+
+	</script>
+</body>
+</html>
